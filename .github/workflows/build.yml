@@ -1,0 +1,50 @@
+name: Build Classic Axis
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Classic Axis
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Visual Studio
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Download Plugin SDK
+        shell: powershell
+        run: |
+          git clone --depth 1 https://github.com/DK22Pac/plugin-sdk.git "$env:GITHUB_WORKSPACE\plugin-sdk"
+
+      - name: Build Plugin SDK
+        shell: cmd
+        run: |
+          cd "%GITHUB_WORKSPACE%\plugin-sdk"
+          msbuild tools\plugin-sdk.sln /p:Configuration=Release /p:Platform=Win32
+
+      - name: Generate Classic Axis project
+        shell: cmd
+        env:
+          PLUGIN_SDK_DIR: ${{ github.workspace }}\plugin-sdk
+        run: |
+          cd "%GITHUB_WORKSPACE%"
+          premake5.exe vs2022
+
+      - name: Build Classic Axis VC
+        shell: cmd
+        env:
+          PLUGIN_SDK_DIR: ${{ github.workspace }}\plugin-sdk
+        run: |
+          cd "%GITHUB_WORKSPACE%"
+          msbuild project_files\classic-axis.sln /p:Configuration=ReleaseVC /p:Platform=Win32
+
+      - name: Upload ClassicAxisVC
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClassicAxisVC
+          path: output\asi\ClassicAxisVC.asi
