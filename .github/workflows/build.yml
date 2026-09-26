@@ -13,26 +13,36 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Visual Studio
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v3
 
       - name: Download Plugin SDK
         shell: powershell
         run: |
-          git clone --depth 1 https://github.com/DK22Pac/plugin-sdk.git "$env:GITHUB_WORKSPACE\plugin-sdk"
+          git clone --depth 1 --recurse-submodules https://github.com/DK22Pac/plugin-sdk.git "$env:GITHUB_WORKSPACE\plugin-sdk"
+
+      - name: Generate Plugin SDK Visual Studio project
+        shell: cmd
+        env:
+          PLUGIN_SDK_DIR: ${{ github.workspace }}\plugin-sdk
+        run: |
+          cd /d "%GITHUB_WORKSPACE%\plugin-sdk"
+          call "tools\generate\Visual Studio.bat"
 
       - name: Build Plugin SDK
         shell: cmd
+        env:
+          PLUGIN_SDK_DIR: ${{ github.workspace }}\plugin-sdk
         run: |
-          cd "%GITHUB_WORKSPACE%\plugin-sdk"
-          msbuild tools\plugin-sdk.sln /p:Configuration=Release /p:Platform=Win32
+          cd /d "%GITHUB_WORKSPACE%\plugin-sdk"
+          msbuild plugin.slnx /property:Configuration=zDebug /property:Platform="Mixed Platforms" /target:plugin_vc /m
 
       - name: Generate Classic Axis project
         shell: cmd
         env:
           PLUGIN_SDK_DIR: ${{ github.workspace }}\plugin-sdk
         run: |
-          cd "%GITHUB_WORKSPACE%"
+          cd /d "%GITHUB_WORKSPACE%"
           premake5.exe vs2022
 
       - name: Build Classic Axis VC
@@ -40,11 +50,16 @@ jobs:
         env:
           PLUGIN_SDK_DIR: ${{ github.workspace }}\plugin-sdk
         run: |
-          cd "%GITHUB_WORKSPACE%"
-          msbuild project_files\classic-axis.sln /p:Configuration=ReleaseVC /p:Platform=Win32
+          cd /d "%GITHUB_WORKSPACE%"
+          msbuild project_files\classic-axis.sln /p:Configuration=ReleaseVC /p:Platform=Win32 /m
+
+      - name: Find ClassicAxisVC
+        shell: powershell
+        run: |
+          Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Filter "ClassicAxisVC.asi" -Recurse
 
       - name: Upload ClassicAxisVC
         uses: actions/upload-artifact@v4
         with:
           name: ClassicAxisVC
-          path: output\asi\ClassicAxisVC.asi
+          path: "**/ClassicAxisVC.asi"
